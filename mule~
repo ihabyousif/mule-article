@@ -1,0 +1,128 @@
+5 reasons to use Mule ESB
+=========================
+An ESB acts as a transit system for carrying data between applications, simplifying the process of maintaining integrations and making future changes less expensive and time consuming.
+
+Mule ESB is a lightweight Java-based enterprise service bus (ESB) and integration platform that allows developers to connect applications together quickly and easily, enabling them to exchange data. Mule ESB enables easy integration of existing systems, regardless of the different technologies that the applications use, including JMS, Web Services, JDBC, HTTP, and more.
+
+During my span of experience in using Mule ESB I listed below only the main points I touched in using the great Mule ESB, Here's why:
+
+1- Decrease time to market and increases productivity working with Mule ESB.
+Mule ESB is a simple development, easy to learn because it depends on java based pojo code and simple xml configuration.
+The below tag defines new component in one line in the Mule ESB XML configuration file.
+
+<component class="com.confluex.components.PaymentManagerComponent" />
+
+Every set of actions arranged in steps included in the flow element inside the XML configuration, it is very simple to change the flow execution steps and reference another flow.
+
+In the below sample the "OrderProcessingMainFlow" consists of one inbound endpoint and three processing steps:
+the first step append "_A" to the payload.
+the second step reference another flow which simply append "B".
+the third step append "C"
+
+This sample indicate the reusability support of already defined and tested flow.
+
+	<flow name="OrderProcessingPrivateFlow">
+		<append-string-transformer message="B" />
+	</flow>
+
+	<flow name="OrderProcessingMainFlow">
+		<vm:inbound-endpoint path="/VM_INPUT"
+			exchange-pattern="request-response" />
+		<append-string-transformer message="_A" />
+		<flow-ref name="OrderProcessingPrivateFlow" />
+		<append-string-transformer message="C" />
+	</flow>
+
+
+Because Mule ESB is light-weight and embeddable, it is easy to run an entire Mule ESB Server inside a test case. Mule ESB provides an abstract JUnit test case called org.mule.tck.FunctionalTestCase that runs Mule ESB inside a test case and manages the lifecycle of the server.
+
+public class MuleServiceTest extends FunctionalTestCase
+{
+
+    @Override
+    protected String getConfigResources()
+    {
+        return "mule-config.xml";
+    }
+
+All you need is to replace the configuration file name with the current Mule ESB configuration file name.
+
+And below sample code for using Mule ESB client inside the test case, this test case should pass in the attashed sample.
+
+    public void testOrderProcessingMainFlow() throws Exception
+    {
+        MuleClient client = new MuleClient(muleContext);
+        MuleMessage result = client.send("vm://VM_INPUT", "hello", null);
+        assertNotNull(result);
+        assertNull(result.getExceptionPayload());
+        assertFalse(result.getPayload() instanceof NullPayload);
+        assertEquals("hello_ABC", result.getPayload());
+    }
+
+
+2- Deployment modes, can be deployed embedded or as standalone
+
+The Embedded deployment
+Run one instance per Java application or embed it in a Webapp , makes it easy to include it in the web application war.
+
+Embedding mule inside web application simply by doing two changes to the web application configuration "web.xml" file the first is to add the Mule ESB XML configuration file name inside the context param value with name "org.mule.config", Second by defining the listener for the class "MuleXmlBuilderContextListener" to read the Mule ESB XML configuration file.
+
+
+If you added the two steps to web application then you have successfully added mule ESB instance to the web application.
+
+	<context-param>
+		<param-name>org.mule.config</param-name>
+		<param-value>mule-config.xml</param-value>
+	</context-param>
+	<listener>
+		<listener-class>org.mule.config.builders.MuleXmlBuilderContextListener</listener-class>
+	</listener>
+
+The standalone mode
+Run multiple apps, Hot Deployment, Minimal Resource Requirements, Easy to Install
+The recommended approach is to run Mule ESB standalone from the command prompt, as a service or daemon, or from a script. This is the simplest architecture, so it reduces the number of points where errors can occur. It's typically best for performance as well, since it reduces the number of layers and eliminates the inherent performance impact of an application server on the overall solution.
+
+3- Mule ESB fully integrates with Spring, allowing you to take advantage of Spring's many features, including support for JNDI and EJB session beans, IOC to prepare components as spring beans and reuse it as pooled components
+
+Spring EJB3 bean support
+
+    <spring:bean id="orderManager"
+        class="org.springframework.jndi.JndiObjectFactoryBean">
+        <spring:property name="jndiName"
+            value="Order-ear/OrderManagerImpl/remote" />
+        <spring:property name="jndiEnvironment">
+            <spring:props>
+                <spring:prop key="java.naming.factory.initial">org.jnp.interfaces.NamingContextFactory
+                </spring:prop>
+                <spring:prop key="java.naming.provider.url">localhost:1099</spring:prop>
+                <spring:prop key="java.naming.factory.url.pkgs">org.jboss.naming:org.jnp.interfaces
+                </spring:prop>
+            </spring:props>
+        </spring:property>
+    </spring:bean>
+
+You can also use spring Inversion of control IOC to prepare Mule ESB component class, or reuse already existing spring bean
+
+        <pooled-component>
+            <method-entry-point-resolver>
+                <include-entry-point method="saveOrderInformation" />
+            </method-entry-point-resolver>
+            <spring-object bean="orderManagerComponent"></spring-object>
+        </pooled-component>
+
+The most powerfull part is the reusability and flexability you can define the component and test it once then reuse it inside any flow.
+
+4- Messages can be in any format from SOAP to binary image files. Mule ESB does not force any design constraints on the architect, such as XML messaging or WSDL service contracts.
+suppose that you receive binary image as the input for inbound endpoint (input) for already existing service and you need to pass it to the next step in the flow, what you need to do? before Mule ESB you may think that internal type conversion need to be done as convert the image to XML format or to SOAP equivalent, with Mule ESB you need to do nothing just pass it to the next processing step, Thanks to Mule ESB :)
+
+ 
+5- Connect to anything
+
+Leverage over 100 transports and modules to integrate various applications, protocols, SOAP and RESTful web services ...etc
+
+Mule ESB provide well tested mature transport connectors that will reduce the development time and covers your output final product with avery powerfull set of connectors, embeddign Mule ESB inside your application not just add some integration features to it but gives your application the ability to connect to anything with some XML configuration and without any low level work at all.
+
+ 
+
+
+
